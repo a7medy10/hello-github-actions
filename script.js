@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const metadataDiv = document.getElementById('metadata');
     const shareButton = document.getElementById('share-button');
     const signoutButton = document.getElementById('signout-button');
+    const recordButton = document.getElementById('record-button');
 
     signoutButton.addEventListener('click', () => {
         localStorage.removeItem('token');
@@ -62,6 +63,55 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error(err);
             alert('An error occurred');
+        }
+    });
+
+    recordButton.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            const audioChunks = [];
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks);
+                const formData = new FormData();
+                formData.append('audio', audioBlob);
+                const token = localStorage.getItem('token');
+                try {
+                    const res = await fetch('/api/acrcloud/recognize', {
+                        method: 'POST',
+                        headers: {
+                            'x-auth-token': token
+                        },
+                        body: formData
+                    });
+                    const data = await res.json();
+                    const resultDiv = document.getElementById('recognition-result');
+                    if (data.status.msg === 'Success' && data.metadata.music.length > 0) {
+                        const music = data.metadata.music[0];
+                        resultDiv.innerHTML = `
+                            <h3>Recognition Result:</h3>
+                            <p><strong>Title:</strong> ${music.title}</p>
+                            <p><strong>Artist:</strong> ${music.artists.map(a => a.name).join(', ')}</p>
+                            <p><strong>Album:</strong> ${music.album.name}</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `<p>No result found.</p>`;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('An error occurred during recognition.');
+                }
+            };
+            mediaRecorder.start();
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, 5000); // Record for 5 seconds
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Could not access microphone. Please grant permission.');
         }
     });
 

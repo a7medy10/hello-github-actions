@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
         };
         jwt.sign(
             payload,
-            'secret', // TODO: Replace with a real secret from environment variables
+            process.env.JWT_SECRET || 'your_jwt_secret', // TODO: Replace with a real secret from environment variables
             { expiresIn: 3600 },
             (err, token) => {
                 if (err) throw err;
